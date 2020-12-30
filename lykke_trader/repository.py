@@ -1,73 +1,52 @@
 import json
-import time
-from datetime import datetime
-import dateutil.relativedelta
-import matplotlib.pyplot as plt
-import datetime
-import numpy as np
 import requests
 
 
-class Trader:
+class Repository:
     PUBLIC_API_BASE_PATH = "https://public-api.lykke.com/api"
     BASE_PATH_HFT_API = "https://hft-api.lykke.com/api"
     # 5years
     how_long_back_in_time_days = 1825
 
-    def __init__(self, repository, known_assets_ids):
+    def __init__(self, api_key):
+        self.api_key = api_key
 
-        self.repository = repository
-        # XRPCHF    XRP/CHF
-        # LKK2YCHF  LKK2/CHF
-        # EURCHF    EUR/CHF
-        # ETHCHF    ETH/CHF
-        # LKKCHF    LKK/CHF
-        self.known_assets_ids = known_assets_ids
-
-    def asset_pairs(self):
+    def asset_pairs(self, known_assets_ids):
         print('Assets pairs \n')
-        r = requests.get(Trader.PUBLIC_API_BASE_PATH + '/AssetPairs/rate')
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate')
         list = r.json()
         for k in list:
-            if k["id"] in (self.known_assets_ids):
+            if k["id"] in (known_assets_ids):
                 print('id: {0} bid: {1} ask: {2}'.format(k["id"], k["bid"], k["ask"]), end="\n")
         return list
 
-    def assetPairsId(self, id):
-        r = self.http.request('GET', Trader.PUBLIC_API_BASE_PATH + '/AssetPairs/' + str(id))
-        liste = json.loads(r.data)
-        print(liste["Name"])
-        return liste
+    def asset_pairs_id(self, id):
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/' + str(id))
+        asset_pairs = r.json()
+        print(asset_pairs["Name"])
+        return asset_pairs
 
-    def isAlive(self):
-        r = self.http.request('GET', Trader.PUBLIC_API_BASE_PATH + '/IsAlive')
-        liste = json.loads(r.data)
-        try:
-            print("Server is alive, version :", liste["Version"])
-            if liste["IssueIndicators"] != []:
-                print("Issues indicators :")
-                for k in liste["IssueIndicators"]:
-                    print(k)
-            else:
-                print("Without issue indicators x)")
+    def is_alive(self):
+        is_alive_response = requests.get(Repository.PUBLIC_API_BASE_PATH + '/IsAlive')
+        if is_alive_response.status_code == 200:
+            print("Server is alive, version :", is_alive_response.json()["version"])
             return True
-        except:
-            print("Server is dead, due to :", liste["ErrorMessage"])
-            return False
+        return False
 
     def get_history(self, asset_id, date_time):
         json_body = json.dumps({"period": "Month", "dateTime": date_time})
 
-        r = requests.post(url=Trader.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/history/' + asset_id,
+        r = requests.post(url=Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/history/' + asset_id,
                           data=json_body,
                           headers={'Content-Type': 'application/json'})
         if r.status_code != 200:
-            print("Request failed with " + str(r.status_code) + ". Response body: " + str(r.json()))
-
+            print("Request [URL: " + str(r.request.url) + "], [Body: " + str(
+                r.request.body) + "] failed with status code: " + str(r.status_code))
+            return
         return r.json()
 
     def getBalance(self, assetId):
-        r = requests.get(Trader.BASE_PATH_HFT_API + '/Wallets', headers={'api-key': self.api_key})
+        r = requests.get(Repository.BASE_PATH_HFT_API + '/Wallets', headers={'api-key': self.api_key})
         liste = r.json()
         for k in liste:
             print(k["Balance"], "of", k["AssetId"], "including", k["Reserved"], "reserved")
@@ -152,70 +131,13 @@ class Trader:
                 sell.extend(k["Prices"])
         return (buy, sell)
 
-    def getMarket(self):
+    def getMarket(self, known_assets_ids):
         print('Market data \n')
         r = self.http.request('GET', 'https://public-api.lykke.com/api/Market')
         liste = json.loads(r.data)
         for k in liste:
-            if k["assetPair"] in (self.known_assets_ids):
+            if k["assetPair"] in known_assets_ids:
                 print('assetPair: {0} bid: {1} ask: {2} lastPrice: {3}'.format(k["assetPair"], k["bid"], k["ask"],
                                                                                k["lastPrice"]), end="\n")
         return liste
         print(liste)
-
-    def run(self):
-        # Buy low sell high, low level => we don't look at volume
-        volumeTraded = 50
-        assetTraded = "CHF"
-        frequency = 0.5
-
-        # End of parameters
-        miniBuy = 99999999999
-        maxiSell = 0
-        notBuyYet = True
-        notSellYet = True
-
-        moneyToSpend = self.repository.getBalance("CHF")
-        print("money to spend: {0}".format(moneyToSpend))
-
-        month_delta = dateutil.relativedelta.relativedelta(months=1)
-        date = datetime.datetime.now()
-
-        x = np.empty(0)
-        y = np.empty(0)
-
-        for i in range(3):
-            date_time = date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + "Z"
-            print("requested date: " + str(date_time))
-            history = self.repository.get_history("ETHCHF", date_time)
-            x = np.append(x, date)
-            y = np.append(y, history["ask"])
-            print("aks price: " + str(history["ask"]))
-            date = date - month_delta
-            time.sleep(11)
-
-        plt.plot(x, y)
-        plt.show()
-
-        # getMarket()
-        # assetPairs()
-
-        # while True:
-        #     time.sleep(1 / frequency)
-        #     # First we uptade miniBuy and maxiSell
-        #     buy, sell = orderBookAsset(assetTraded)
-        #     buyAvalable = min([i["Price"] for i in buy])
-        #     sellAvalable = max([i["Price"] for i in sell])
-        #
-        #     miniBuy = min(miniBuy, buyAvalable)
-        #     maxiSell = max(maxiSell, sellAvalable)
-        #     print("Order book analysed // min buy :", miniBuy, " // top sell :", maxiSell, "// spread :", maxiSell - miniBuy)
-        #
-        #     # We then look if we can buy lower than maxiSell or sell higher than maxiBuy
-        #     if buyAvalable < maxiSell and notBuyYet:
-        #         notBuyYet = not marketOrder(assetTraded, "Buy", volumeTraded)
-        #     if sellAvalable > miniBuy and notSellYet:
-        #         notSellYet = not marketOrder(assetTraded, "Sell", volumeTraded)
-        #
-        #     # End of the strategy, we may loop on assets using multithreading, was asking simple strategy : it cant lose
-
