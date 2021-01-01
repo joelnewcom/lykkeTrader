@@ -10,7 +10,7 @@ import numpy as np
 
 class Librarian:
     # 2 years = 730
-    how_long_back_in_time_days = 1
+    how_long_back_in_time_days = 5
     one_day = dateutil.relativedelta.relativedelta(days=1)
 
     def __init__(self, repository, known_assets_ids):
@@ -18,16 +18,11 @@ class Librarian:
         self.known_assets_ids = known_assets_ids
 
     def write_history_file(self):
-        self.variable = 0
-        # do nothing
-
-    def run(self):
-
         now = datetime.datetime.now()
 
         for asset_id in self.known_assets_ids:
             date_times = np.empty(shape=0, dtype='datetime64')
-            values = np.empty(0)
+            values = np.empty(shape=0)
 
             for i in range(self.how_long_back_in_time_days):
                 formatted_date_time = now.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + "Z"
@@ -44,3 +39,10 @@ class Librarian:
 
             plt.plot(date_times, values)
             plt.show()
+
+    def show_history_file(self):
+        values = np.loadtxt(fname='XRPCHF' + '_values.csv', delimiter=',')
+        date_times = np.loadtxt(fname='XRPCHF' + '_date_times.csv', fmt='%s', delimiter=',')
+
+        plt.plot(date_times, values)
+        plt.show()
