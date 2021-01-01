@@ -17,7 +17,8 @@ if not repository.is_alive():
     raise Exception("Lykke server is not reachable")
 
 librarian = Librarian(repository, known_assets_ids)
-librarian.run()
+librarian.write_history_file()
+librarian.show_history_file()
 
 
 
