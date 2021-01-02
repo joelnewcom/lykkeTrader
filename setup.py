@@ -20,7 +20,5 @@ librarian = Librarian(repository, known_assets_ids)
 librarian.write_history_file()
 librarian.show_history_file()
 
-
-
 #trader = Trader(repository, known_assets_ids)
 #trader.run()
