@@ -11,14 +11,18 @@ class Repository:
     def __init__(self, api_key):
         self.api_key = api_key
 
-    def asset_pairs(self, known_assets_ids):
-        print('Assets pairs \n')
+    def get_asset_pairs_rate(self, known_assets_ids):
         r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate')
         list = r.json()
+        print('Assets pairs \n')
         for k in list:
             if k["id"] in (known_assets_ids):
                 print('id: {0} bid: {1} ask: {2}'.format(k["id"], k["bid"], k["ask"]), end="\n")
         return list
+
+    def get_dictionary_assetpairs_spot(self):
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/dictionary/Spot')
+        return r.json()
 
     def asset_pairs_id(self, id):
         r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/' + str(id))
