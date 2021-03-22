@@ -9,64 +9,42 @@ import numpy as np
 
 class Trader:
 
-
-    def __init__(self, repository, known_assets_ids):
+    def __init__(self, repository, known_assets_ids, librarian):
 
         self.repository = repository
         self.known_assets_ids = known_assets_ids
+        self.librarian = librarian
 
     def run(self):
-        # Buy low sell high, low level => we don't look at volume
         volumeTraded = 50
         assetTraded = "CHF"
-        frequency = 0.5
+        frequency_in_seconds = 2
 
-        # End of parameters
-        miniBuy = 99999999999
-        maxiSell = 0
-        notBuyYet = True
-        notSellYet = True
 
-        moneyToSpend = self.repository.getBalance("CHF")
-        print("money to spend: {0}".format(moneyToSpend))
+        money_to_spend = self.repository.get_balance("CHF")
+        print("money to spend: {0}".format(money_to_spend))
 
-        month_delta = dateutil.relativedelta.relativedelta(months=1)
-        date = datetime.datetime.now()
+        while True:
+            time.sleep(frequency_in_seconds)
 
-        x = np.empty(0)
-        y = np.empty(0)
+            bid, ask = self.repository.order_book_asset("XRPCHF")
 
-        for i in range(3):
-            date_time = date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + "Z"
-            print("requested date: " + str(date_time))
-            history = self.repository.get_history("ETHCHF", date_time)
-            x = np.append(x, date)
-            y = np.append(y, history["ask"])
-            print("aks price: " + str(history["ask"]))
-            date = date - month_delta
-            time.sleep(11)
+            # Bid = Other people want to buy at this price
+            # Ask = Other want to sell at this price
 
-        plt.plot(x, y)
-        plt.show()
+            # Sell to max buy, Buy at min ask
 
-        # getMarket()
-        # assetPairs()
+            highest_bid = max([i["Price"] for i in bid])
+            lowest_ask = min([i["Price"] for i in ask])
 
-        # while True:
-        #     time.sleep(1 / frequency)
-        #     # First we uptade miniBuy and maxiSell
-        #     buy, sell = orderBookAsset(assetTraded)
-        #     buyAvalable = min([i["Price"] for i in buy])
-        #     sellAvalable = max([i["Price"] for i in sell])
-        #
-        #     miniBuy = min(miniBuy, buyAvalable)
-        #     maxiSell = max(maxiSell, sellAvalable)
-        #     print("Order book analysed // min buy :", miniBuy, " // top sell :", maxiSell, "// spread :", maxiSell - miniBuy)
-        #
-        #     # We then look if we can buy lower than maxiSell or sell higher than maxiBuy
-        #     if buyAvalable < maxiSell and notBuyYet:
-        #         notBuyYet = not marketOrder(assetTraded, "Buy", volumeTraded)
-        #     if sellAvalable > miniBuy and notSellYet:
-        #         notSellYet = not marketOrder(assetTraded, "Sell", volumeTraded)
-        #
-        #     # End of the strategy, we may loop on assets using multithreading, was asking simple strategy : it cant lose
+            # spread = highest bid - lowest ask
+            spread = highest_bid - lowest_ask
+
+
+            # We then look if we can buy lower than maxiSell or sell higher than maxiBuy
+            if buyAvalable < maxiSell and notBuyYet:
+                notBuyYet = not self.repository.marketOrder(assetTraded, "Buy", volumeTraded)
+            if sellAvalable > miniBuy and notSellYet:
+                notSellYet = not self.repository.marketOrder(assetTraded, "Sell", volumeTraded)
+
+            # End of the strategy, we may loop on assets using multithreading, was asking simple strategy : it cant lose
