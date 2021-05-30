@@ -1,10 +1,14 @@
-import os.path
+import os
 import time
-from datetime import datetime
+from datetime import date
 
 import dateutil.relativedelta
 import matplotlib.pyplot as plt
 import numpy as np
+
+DATA_FILE_HEADER = "date, ask price, bid price"
+
+data_file_delimiter = ','
 
 
 class Librarian:
@@ -13,40 +17,120 @@ class Librarian:
     one_day = dateutil.relativedelta.relativedelta(days=1)
 
     def __init__(self, repository, known_assets_ids):
+        self.asset_pairs_history = {}
         self.repository = repository
         self.known_assets_ids = known_assets_ids
+        self.update_history_files()
 
-    def write_history_file(self):
-        time_window = datetime.today()
+    def update_history_files(self):
+        for asset_pair_id in self.known_assets_ids:
 
-        for asset_id in self.known_assets_ids:
+            dates, ask, bid = self.read_history_file(asset_pair_id)
+            if dates and len(dates) >= 1:
+                newest_data = dates[len(dates) - 1]
+                date_object = date.fromisoformat(newest_data)
+                date_object = date_object + dateutil.relativedelta.relativedelta(days=1)
+                self.append_history_file_newest_date_last(asset_pair_id, date_object)
+            else:
+                date_object = date.today() - dateutil.relativedelta.relativedelta(
+                    days=Librarian.how_long_back_in_time_days)
+                self.append_history_file_newest_date_last(asset_pair_id, date_object)
 
-            date_times = np.empty(shape=0, dtype='datetime64')
-            values = np.empty(shape=0)
+    def append_history_file_newest_date_last(self, asset_pair, next_date):
+        today = date.today()
 
-            for i in range(self.how_long_back_in_time_days):
-                # Format if working with date_time: time_window.strftime('%Y-%m-%dT00:00:00.000')[:-3] + "Z"
-                formatted_date = time_window.strftime('%Y-%m-%d')
+        file_path = asset_pair + '_data.csv'
 
-                print("requested date: " + str(formatted_date))
-                history_response = self.repository.get_history_rate(asset_id, formatted_date, "day")
+        with open(file_path, "a") as data_file:
 
-                date_times = np.append(date_times, np.datetime64(str(time_window)))
-                values = np.append(values, history_response["ask"])
-                print("ask price: " + str(history_response["ask"]) + " other price: " + str(history_response["ask"]))
-                time_window = time_window - self.one_day
+            if os.stat(file_path).st_size == 0:
+                data_file.write("%s\n" % DATA_FILE_HEADER)
+
+            while today >= next_date:
+
+                history_rates = self.repository.get_history_rate(asset_pair, next_date.strftime('%Y-%m-%d'), "day")
+
+                if history_rates["ask"] is not None and history_rates["bid"] is not None:
+                    print("ask price: " + str(history_rates["ask"]) + " other price: " +
+                          str(history_rates["ask"]) + " for assetId: " + asset_pair)
+                    data_file.write(str(next_date) + "," +
+                                    str(history_rates["ask"]) + "," +
+                                    str(history_rates["bid"]) + "\n")
+                next_date = next_date + dateutil.relativedelta.relativedelta(days=1)
+
                 time.sleep(11)
 
-            np.savetxt(fname=asset_id + '_values.csv', X=values, delimiter=',')
-            np.savetxt(fname=asset_id + '_date_times.csv', X=date_times, fmt='%s', delimiter=',')
+    def write_history_files_newest_date_last(self):
+        for asset_pair_id in self.known_assets_ids:
+            self.write_history_file_newest_date_last(asset_pair_id)
 
-    def show_history_file(self):
-        values = np.loadtxt(fname='XRPCHF' + '_values.csv', delimiter=',')
-        date_times = np.loadtxt(fname='XRPCHF' + '_date_times.csv', dtype='datetime64', delimiter=',')
-        plt.plot(date_times, values)
+    def write_history_file_newest_date_last(self, asset_pair_id):
+        today = date.today()
+
+        data_file = open(asset_pair_id + '_data.csv', "w")
+        data_file.write("%s\n" % DATA_FILE_HEADER)
+        for days_going_back in range(self.how_long_back_in_time_days, 0, -1):
+            moving_time_window = today - dateutil.relativedelta.relativedelta(days=days_going_back)
+            formatted_date = moving_time_window.strftime('%Y-%m-%d')
+
+            print("requested date: " + str(formatted_date) + " for assetId: " + asset_pair_id)
+            history_response = self.repository.get_history_rate(asset_pair_id, formatted_date, "day")
+
+            if history_response["ask"] is not None and history_response["bid"] is not None:
+                print("ask price: " + str(history_response["ask"]) + " other price: " +
+                      str(history_response["ask"]) + " for assetId: " + asset_pair_id)
+                data_file.write(str(formatted_date) + "," +
+                                str(history_response["ask"]) + "," +
+                                str(history_response["bid"]) + "\n")
+
+            time.sleep(11)
+
+    def writeHistoryTrades(self):
+        self.repository.get
+
+    @staticmethod
+    def read_history_file(asset_pair):
+        file_path = asset_pair + '_data.csv'
+
+        if not os.path.isfile(file_path):
+            return [], [], []
+
+        with open(file_path, "r") as data_file:
+
+            line_values = []
+
+            # check for header
+            first_line = data_file.readline()
+            if first_line and not first_line.startswith(DATA_FILE_HEADER):
+                line_values.append(first_line.strip().split(data_file_delimiter))
+
+            while True:
+                line = data_file.readline()
+                # if line is empty end of file is reached
+                if not line:
+                    break
+                line_values.append(line.strip().split(data_file_delimiter))
+
+        dates = [item[0].strip() for item in line_values]
+        ask = [float(item[1].strip()) for item in line_values]
+        bid = [float(item[2].strip()) for item in line_values]
+
+        return dates, ask, bid
+
+    def plot_history_file(self, asset_pair):
+        dates, ask, bid = self.read_history_file(asset_pair)
+
+        plt.plot(dates, ask)
+        plt.gcf().autofmt_xdate()
         plt.show()
 
-    def get_history_asset_pair(self, asset_pair):
+        plt.plot(dates, bid)
+        plt.gcf().autofmt_xdate()
+        plt.show()
+
+    @staticmethod
+    def get_history_asset_pair(asset_pair):
+
         return np.loadtxt(fname=asset_pair + '_values.csv', delimiter=',')
 
     @staticmethod
@@ -55,3 +139,6 @@ class Librarian:
         for _ in file_handle:
             count += 1
         return count
+
+    def getPaidPrice(self):
+        pass

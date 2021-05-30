@@ -4,8 +4,11 @@ from lykke_trader.trader import Trader
 
 inputLoader = InputLoader('./config.ini')
 librarian = Librarian(inputLoader.repository, inputLoader.known_available_asset_pairs)
-# librarian.write_history_file()
-# librarian.show_history_file()
+# librarian.plot_history_file('XRPCHF')
+
+# Globals
+amountToSpendAtOneTime = 50
+waitingTimeInMilliSec = 1000
 
 trader = Trader(inputLoader.repository, inputLoader.known_available_asset_pairs, librarian)
-trader.run()
+trader.buy_procedure('XRPCHF')

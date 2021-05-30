@@ -12,14 +12,14 @@ class Repository:
         self.api_key = api_key
 
     @staticmethod
-    def get_asset_pairs_rate(known_assets_ids):
+    def get_all_asset_pairs_rate():
         r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate')
-        list = r.json()
-        print('Assets pairs \n')
-        for k in list:
-            if k["id"] in (known_assets_ids):
-                print('id: {0} bid: {1} ask: {2}'.format(k["id"], k["bid"], k["ask"]), end="\n")
-        return list
+        return r.json()
+
+    @staticmethod
+    def get_asset_pairs_rate(known_assets_id):
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/' + str(known_assets_id))
+        return r.json()
 
     @staticmethod
     def get_dictionary_asset_pairs_spot():
@@ -45,17 +45,22 @@ class Repository:
     def get_history_rate(asset_id, date_time, period):
         json_body = json.dumps({"period": period, "dateTime": date_time})
 
-        r = requests.post(url=Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/history/' + asset_id,
-                          data=json_body,
-                          headers={'Content-Type': 'application/json'})
-        if r.status_code != 200:
-            print("Request [URL: " + str(r.request.url) + "], [Body: " + str(
-                r.request.body) + "] failed with status code: " + str(r.status_code))
-            return
-        return r.json()
+        for x in range(5):
+            try:
+                r = requests.post(url=Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/history/' + asset_id,
+                                  data=json_body,
+                                  headers={'Content-Type': 'application/json'})
+                if r.status_code == 200:
+                    return r.json()
+                else:
+                    print("Request [URL: " + str(r.request.url) + "], [Body: " + str(
+                        r.request.body) + "] failed with status code: " + str(r.status_code))
+            except requests.exceptions.ConnectionError as exception:
+                print('ConnectionException occurred: ' + exception)
 
     def get_balance(self, asset_id):
-        r = requests.get(Repository.BASE_PATH_HFT_API + '/Wallets', headers={'api-key': self.api_key})
+        r = requests.get(url=Repository.BASE_PATH_HFT_API + '/Wallets',
+                         headers={'api-key': self.api_key})
         for k in r.json():
             print(k["Balance"], "of", k["AssetId"], "including", k["Reserved"], "reserved")
             if k["AssetId"] == asset_id:
@@ -66,7 +71,7 @@ class Repository:
         order = {"AssetPairId": assetId, "OrderAction": buyorsell, "Volume": volume}
         order = json.dumps(order)
         r = requests.post(Repository.BASE_PATH_HFT_API + '/Orders/market',
-                              fields={'order': order, 'api-key': self.api_key})
+                          fields={'order': order, 'api-key': self.api_key})
         try:
             liste = r.json()
             try:
@@ -78,25 +83,41 @@ class Repository:
         except:
             return
 
-    def limitOrder(self, assetId, buyorsell, volume):
-        order = {"AssetPairId": assetId, "OrderAction": buyorsell, "Volume": volume}
+    def limit_order_sell(self, asset_id, volume):
+        order = {"AssetPairId": asset_id, "OrderAction": "sell", "Volume": volume}
         order = json.dumps(order)
         r = requests.post(Repository.BASE_PATH_HFT_API + '/Orders/limit',
-                              fields={'order': order, 'api-key': self.api_key})
+                          fields={'order': order, 'api-key': self.api_key})
         try:
-            liste = r.json()
+            response = r.json()
             try:
-                print(liste["Error"])
+                print(response["Error"])
                 return False
             except:
-                print("Executed limit order", str(buyorsell), "volume :", volume, "on asset", str(assetId))
+                print("Executed limit order", "sell", "volume :", volume, "on asset", str(asset_id))
+                return True
+        except:
+            return  # print("Something went wrong :/")
+
+    def limit_order_buy(self, asset_id, volume):
+        order = {"AssetPairId": asset_id, "OrderAction": "buy", "Volume": volume}
+        order = json.dumps(order)
+        r = requests.post(Repository.BASE_PATH_HFT_API + '/Orders/limit',
+                          fields={'order': order, 'api-key': self.api_key})
+        try:
+            response = r.json()
+            try:
+                print(response["Error"])
+                return False
+            except:
+                print("Executed limit order", "buy", "volume :", volume, "on asset", str(asset_id))
                 return True
         except:
             return  # print("Something went wrong :/")
 
     def cancelOrder(self, id):  # untested coz no api key given
         r = requests.post('https://hft-service-dev.lykkex.net/api/Orders/' + str(id) + '/Cancel',
-                              fields={'id': id, 'api-key': self.api_key})
+                          fields={'id': id, 'api-key': self.api_key})
         if r.status == 20:
             print("Order", id, "canceled")
             return True
@@ -106,7 +127,7 @@ class Repository:
 
     def info_order(self, id):  # untested coz no api key given
         r = requests.get(Repository.BASE_PATH_HFT_API + '/Orders/' + str(id),
-                              fields={'id': id, 'api-key': self.api_key})
+                         fields={'id': id, 'api-key': self.api_key})
         liste = r.json()
         print("Status", liste["Status"])
         print("Remaining volume", liste["RemainingVolume"])
@@ -118,7 +139,7 @@ class Repository:
                   "Cancelled", "LeadToNegativeSpread"]
         for s in status:
             r = requests.get(Repository.BASE_PATH_HFT_API + '/Orders?status=' + s,
-                                  fields={'api-key': self.api_key})
+                             fields={'api-key': self.api_key})
             liste = r.json()
             print("Order", s)
             for k in liste:
@@ -133,9 +154,9 @@ class Repository:
         ask = []
         for k in r.json():
             if k["IsBuy"]:
-                bid.extend(k["Prices"]) #bid
+                bid.extend(k["Prices"])  # bid
             else:
-                ask.extend(k["Prices"]) #ask
+                ask.extend(k["Prices"])  # ask
         return bid, ask
 
     def get_market(self, known_assets_ids):
@@ -148,3 +169,9 @@ class Repository:
                                                                                k["lastPrice"]), end="\n")
         return liste
         print(liste)
+
+    @staticmethod
+    def get_history_trades(self, asset_pair_id):
+        history_trades = requests.get(url=Repository.BASE_PATH_HFT_API + '/History/trades',
+                                      fields={'api-key': self.api_key, 'assetPairId': asset_pair_id})
+        return history_trades.json()
