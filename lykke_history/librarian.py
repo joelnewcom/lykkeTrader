@@ -9,11 +9,12 @@ import numpy as np
 DATA_FILE_HEADER = "date, ask price, bid price"
 
 data_file_delimiter = ','
+waitingTimeInSec = 11
 
 
 class Librarian:
     # 2 years = 730
-    how_long_back_in_time_days = 7
+    how_long_back_in_time_days = 8
     one_day = dateutil.relativedelta.relativedelta(days=1)
 
     def __init__(self, repository, known_assets_ids):
@@ -24,20 +25,20 @@ class Librarian:
 
     def update_history_files(self):
         for asset_pair_id in self.known_assets_ids:
-
             dates, ask, bid = self.read_history_file(asset_pair_id)
-            if dates and len(dates) >= 1:
-                newest_data = dates[len(dates) - 1]
-                date_object = date.fromisoformat(newest_data)
-                date_object = date_object + dateutil.relativedelta.relativedelta(days=1)
-                self.append_history_file_newest_date_last(asset_pair_id, date_object)
+            if dates and len(dates) >= self.how_long_back_in_time_days:
+                newest_date_in_file = dates[len(dates) - 1]
+                newest_date_in_file_as_date = date.fromisoformat(newest_date_in_file)
+                next_date_after_newest_date_in_file = newest_date_in_file_as_date + dateutil.relativedelta.relativedelta(
+                    days=1)
+                self.append_history_file_newest_date_last(asset_pair_id, next_date_after_newest_date_in_file)
             else:
-                date_object = date.today() - dateutil.relativedelta.relativedelta(
+                os.remove(asset_pair_id + '_data.csv')
+                oldest_date_to_start_history = date.today() - dateutil.relativedelta.relativedelta(
                     days=Librarian.how_long_back_in_time_days)
-                self.append_history_file_newest_date_last(asset_pair_id, date_object)
+                self.append_history_file_newest_date_last(asset_pair_id, oldest_date_to_start_history)
 
     def append_history_file_newest_date_last(self, asset_pair, next_date):
-        today = date.today()
 
         file_path = asset_pair + '_data.csv'
 
@@ -46,6 +47,7 @@ class Librarian:
             if os.stat(file_path).st_size == 0:
                 data_file.write("%s\n" % DATA_FILE_HEADER)
 
+            today = date.today()
             while today >= next_date:
 
                 history_rates = self.repository.get_history_rate(asset_pair, next_date.strftime('%Y-%m-%d'), "day")
@@ -56,9 +58,9 @@ class Librarian:
                     data_file.write(str(next_date) + "," +
                                     str(history_rates["ask"]) + "," +
                                     str(history_rates["bid"]) + "\n")
-                next_date = next_date + dateutil.relativedelta.relativedelta(days=1)
 
-                time.sleep(11)
+                next_date = next_date + self.one_day
+                time.sleep(waitingTimeInSec)
 
     def write_history_files_newest_date_last(self):
         for asset_pair_id in self.known_assets_ids:
@@ -83,10 +85,7 @@ class Librarian:
                                 str(history_response["ask"]) + "," +
                                 str(history_response["bid"]) + "\n")
 
-            time.sleep(11)
-
-    def writeHistoryTrades(self):
-        self.repository.get
+            time.sleep(waitingTimeInSec)
 
     @staticmethod
     def read_history_file(asset_pair):
@@ -130,7 +129,6 @@ class Librarian:
 
     @staticmethod
     def get_history_asset_pair(asset_pair):
-
         return np.loadtxt(fname=asset_pair + '_values.csv', delimiter=',')
 
     @staticmethod
@@ -139,6 +137,3 @@ class Librarian:
         for _ in file_handle:
             count += 1
         return count
-
-    def getPaidPrice(self):
-        pass

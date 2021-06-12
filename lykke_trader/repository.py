@@ -17,8 +17,8 @@ class Repository:
         return r.json()
 
     @staticmethod
-    def get_asset_pairs_rate(known_assets_id):
-        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/' + str(known_assets_id))
+    def get_asset_pairs_rate(asset_pair_id):
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/' + str(asset_pair_id))
         return r.json()
 
     @staticmethod
@@ -99,13 +99,15 @@ class Repository:
         except:
             return  # print("Something went wrong :/")
 
-    def limit_order_buy(self, asset_id, volume):
-        order = {"AssetPairId": asset_id, "OrderAction": "buy", "Volume": volume}
+    def limit_order_buy(self, asset_id, volume, price):
+        order = {"AssetPairId": asset_id, "OrderAction": "Buy", "Volume": round(volume, 6), "Price": round(price, 6)}
         order = json.dumps(order)
-        r = requests.post(Repository.BASE_PATH_HFT_API + '/Orders/limit',
-                          fields={'order': order, 'api-key': self.api_key})
+        r = requests.post(Repository.BASE_PATH_HFT_API + '/Orders/v2/limit',
+                          data=order,
+                          headers={'api-key': self.api_key, 'Content-Type': 'application/json'})
         try:
             response = r.json()
+            print(response)
             try:
                 print(response["Error"])
                 return False
@@ -113,7 +115,8 @@ class Repository:
                 print("Executed limit order", "buy", "volume :", volume, "on asset", str(asset_id))
                 return True
         except:
-            return  # print("Something went wrong :/")
+            print("Something went wrong :/")
+            return
 
     def cancelOrder(self, id):  # untested coz no api key given
         r = requests.post('https://hft-service-dev.lykkex.net/api/Orders/' + str(id) + '/Cancel',
