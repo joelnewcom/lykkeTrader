@@ -1,5 +1,4 @@
 class Order:
-
     status = 'active'
     assetPair: 'XRPCHF'
     amount = 0

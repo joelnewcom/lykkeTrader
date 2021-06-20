@@ -2,13 +2,15 @@ import json
 import configparser
 from jsonpath_ng import parse
 from lykke_trader.repository import Repository
+from typing import List
+from typing import Dict
+from lykke_trader.asset_pair import AssetPair
 
 
 class InputLoader:
 
     def __init__(self, ini_file):
 
-        json_path_expression = parse('[*].id')
         config = configparser.ConfigParser()
         config.read(ini_file)
         self.sections = config.sections()
@@ -31,20 +33,42 @@ class InputLoader:
 
         dictionary_response = self.repository.get_dictionary_asset_pairs_spot()
 
+        self.known_available_asset_pairs = self.get_available_asset_pairs_refactored(dictionary_response,
+                                                                                     known_asset_pair_ids)
+
+    @staticmethod
+    def get_available_asset_pairs(dictionary_response, known_asset_pair_ids: List[str]):
         available_asset_pair_ids = []
-        for match in json_path_expression.find(dictionary_response):
+        for match in parse('[*].id').find(dictionary_response):
             available_asset_pair_ids.append(match.value)
         print(f'Possible asset pairs are: {available_asset_pair_ids}')
-
-        self.known_available_asset_pairs = []
+        known_available_asset_pairs = []
         for known_asset_pair_id in known_asset_pair_ids:
             if known_asset_pair_id not in available_asset_pair_ids:
                 print(f'Given asset pair is not available: "{known_asset_pair_id}" and will be ignored')
             else:
-                self.known_available_asset_pairs.append(known_asset_pair_id)
+                known_available_asset_pairs.append(known_asset_pair_id)
+        if not known_available_asset_pairs:
+            raise Exception("At least one available asset pair must be configured in the ini config file")
 
-        if not self.known_available_asset_pairs:
-            raise Exception("At least one available asset pair must be configured in: " + ini_file)
+        return known_available_asset_pairs
+
+    @staticmethod
+    def get_available_asset_pairs_refactored(dictionary_response, known_asset_pair_ids: List[str]) \
+            -> Dict[str, AssetPair]:
+        available_asset_pair_ids: Dict[str, AssetPair] = {}
+
+        for asset in dictionary_response:
+            if known_asset_pair_ids.__contains__(asset["id"]):
+                available_asset_pair_ids[asset["id"]] = AssetPair(asset["id"], asset["name"], asset["accuracy"],
+                                                                  asset["invertedAccuracy"], asset["baseAssetId"],
+                                                                  asset["quotingAssetId"])
+
+        if len(available_asset_pair_ids) != len(known_asset_pair_ids):
+            for known_asset_pair_id in known_asset_pair_ids:
+                if not available_asset_pair_ids.__contains__(known_asset_pair_id):
+                    print(f'Given asset pair is not available: "{known_asset_pair_id}" and will be ignored')
+        return available_asset_pair_ids
 
     def get_repository(self):
         return self.repository

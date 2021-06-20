@@ -3,43 +3,37 @@ import requests
 
 
 class Repository:
-    PUBLIC_API_BASE_PATH = "https://public-api.lykke.com/api"
+    PUBLIC_API_BASE_PATH = "https://public-api.lykke.com"
     BASE_PATH_HFT_API = "https://hft-api.lykke.com/api"
-    # 5years
-    how_long_back_in_time_days = 1825
 
     def __init__(self, api_key):
         self.api_key = api_key
 
     @staticmethod
     def get_all_asset_pairs_rate():
-        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate')
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/api/AssetPairs/rate')
         return r.json()
 
     @staticmethod
     def get_asset_pairs_rate(asset_pair_id):
-        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/' + str(asset_pair_id))
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/api/AssetPairs/rate/' + str(asset_pair_id))
         return r.json()
 
     @staticmethod
     def get_dictionary_asset_pairs_spot():
-        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/dictionary/Spot')
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/api/AssetPairs/dictionary/Spot')
         return r.json()
 
     @staticmethod
     def asset_pairs_id(id):
-        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/' + str(id))
+        r = requests.get(Repository.PUBLIC_API_BASE_PATH + '/api/AssetPairs/' + str(id))
         asset_pairs = r.json()
         print(asset_pairs["Name"])
         return asset_pairs
 
     @staticmethod
     def is_alive():
-        is_alive_response = requests.get(Repository.PUBLIC_API_BASE_PATH + '/IsAlive')
-        if is_alive_response.status_code == 200:
-            print("Server is alive, version :", is_alive_response.json()["version"])
-            return True
-        return False
+        return requests.get(Repository.PUBLIC_API_BASE_PATH + '/api/IsAlive').status_code == 200
 
     @staticmethod
     def get_history_rate(asset_id, date_time, period):
@@ -47,7 +41,7 @@ class Repository:
 
         for x in range(5):
             try:
-                r = requests.post(url=Repository.PUBLIC_API_BASE_PATH + '/AssetPairs/rate/history/' + asset_id,
+                r = requests.post(url=Repository.PUBLIC_API_BASE_PATH + '/api/AssetPairs/rate/history/' + asset_id,
                                   data=json_body,
                                   headers={'Content-Type': 'application/json'})
                 if r.status_code == 200:
@@ -67,7 +61,7 @@ class Repository:
                 return k["Balance"] - k["Reserved"]
         raise Exception("Sorry, no numbers below zero")
 
-    def marketOrder(self, assetId, buyorsell, volume):
+    def market_order(self, assetId, buyorsell, volume):
         order = {"AssetPairId": assetId, "OrderAction": buyorsell, "Volume": volume}
         order = json.dumps(order)
         r = requests.post(Repository.BASE_PATH_HFT_API + '/Orders/market',
@@ -171,10 +165,19 @@ class Repository:
                 print('assetPair: {0} bid: {1} ask: {2} lastPrice: {3}'.format(k["assetPair"], k["bid"], k["ask"],
                                                                                k["lastPrice"]), end="\n")
         return liste
-        print(liste)
 
     @staticmethod
     def get_history_trades(self, asset_pair_id):
         history_trades = requests.get(url=Repository.BASE_PATH_HFT_API + '/History/trades',
                                       fields={'api-key': self.api_key, 'assetPairId': asset_pair_id})
         return history_trades.json()
+
+    @staticmethod
+    def get_asset_dictionary():
+        asset_dict = requests.get(url=Repository.PUBLIC_API_BASE_PATH + '/api/Assets/dictionary')
+        return asset_dict.json()
+
+    @staticmethod
+    def get_version():
+        response = requests.get(url=Repository.PUBLIC_API_BASE_PATH + '/home/Version')
+        return response.json()

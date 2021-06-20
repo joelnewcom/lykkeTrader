@@ -86,7 +86,8 @@ class Trader(lykke_trader.repository.Repository, lykke_history.librarian.Librari
             print("Decision to buy {} for {} CHF, volume: {}".format(asset_pair, money_to_spend, volume))
             self.repository.limit_order_buy(asset_pair, volume,ask)
 
-    def trenddetector(self, list_of_index, array_of_data, order=1):
+    @staticmethod
+    def trend_detector(list_of_index, array_of_data, order=1):
         result = np.polynomial.polynomial.Polynomial.fit(list_of_index, list(array_of_data), order)
         slope = result[-2]
 
